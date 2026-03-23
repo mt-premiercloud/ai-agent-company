@@ -101,12 +101,27 @@ def run(blueprint_ticket_key: str, adr_ticket_key: str = None) -> dict:
     try:
         cleaned = raw_response.strip()
         if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0]
+            cleaned = cleaned.split("\n", 1)[1]
+            if "```" in cleaned:
+                cleaned = cleaned.rsplit("```", 1)[0]
         plan = json.loads(cleaned)
-    except json.JSONDecodeError:
-        log.error("Failed to parse plan JSON")
-        plan = {"raw_response": raw_response}
-        return {"plan": plan, "story_keys": []}
+    except json.JSONDecodeError as e:
+        log.warning("JSON parse failed: %s — attempting repair...", str(e)[:80])
+        # Try to repair truncated JSON by closing open brackets
+        repaired = cleaned.rstrip()
+        # Count open/close braces and brackets
+        open_braces = repaired.count("{") - repaired.count("}")
+        open_brackets = repaired.count("[") - repaired.count("]")
+        # Remove trailing comma if present
+        repaired = repaired.rstrip(",\n ")
+        repaired += "]" * open_brackets + "}" * open_braces
+        try:
+            plan = json.loads(repaired)
+            log.info("JSON repair succeeded")
+        except json.JSONDecodeError:
+            log.error("JSON repair also failed, saving raw response")
+            plan = {"raw_response": raw_response}
+            return {"plan": plan, "story_keys": []}
 
     # Step 4: Create stories in Jira
     log.info("Step 4: Creating %d stories in Jira...", plan.get("total_stories", 0))

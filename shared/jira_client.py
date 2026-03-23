@@ -116,11 +116,19 @@ def transition_issue(issue_key: str, status: str) -> None:
 
 
 def search_issues(jql: str, max_results: int = 50) -> list:
-    """Search issues with JQL."""
+    """Search issues with JQL (uses v3 API)."""
     client = _get_client()
     log.debug("JQL search: %s (max %d)", jql, max_results)
-    results = client.jql(jql, limit=max_results)
-    log.debug("Found %d issues", results.get("total", 0))
+    # Use the new v3 search endpoint (v2 was deprecated)
+    data = {"jql": jql, "maxResults": max_results}
+    try:
+        results = client.post("rest/api/3/search/jql", data=data)
+    except Exception:
+        # Fallback to v3 search GET
+        from urllib.parse import quote
+        results = client.get(f"rest/api/3/search?jql={quote(jql)}&maxResults={max_results}")
+    total = results.get("total", 0)
+    log.debug("Found %d issues", total)
     return results.get("issues", [])
 
 
