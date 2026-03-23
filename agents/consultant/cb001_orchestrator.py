@@ -101,7 +101,10 @@ def run(project_idea: str, owner_answers: str = None) -> dict:
 
     # Step 3: Create Jira project and epics
     log.info("Step 3: Creating Jira project and epics...")
-    project_key = _generate_project_key(blueprint.get("project_name", "PROJECT"))
+    project_key = _create_project_with_retry(blueprint.get("project_name", "PROJECT"))
+    if not project_key:
+        log.error("Could not create Jira project. Returning blueprint only.")
+        return {"blueprint": blueprint, "jira_project_key": None, "epic_keys": [], "blueprint_ticket_key": None}
     jira_result = _create_jira_structure(project_key, blueprint)
 
     log.info("=" * 60)
@@ -117,36 +120,46 @@ def run(project_idea: str, owner_answers: str = None) -> dict:
     }
 
 
-def _generate_project_key(name: str) -> str:
-    """Generate a Jira project key from project name (max 10 chars, uppercase)."""
+def _create_project_with_retry(name: str) -> str:
+    """Create a Jira project, trying different keys if needed."""
     import re
-    # Take first letters of each word, or first 4 chars
+    import random
+
     words = re.findall(r"[A-Za-z]+", name)
     if len(words) >= 2:
-        key = "".join(w[0] for w in words[:5]).upper()
+        base_key = "".join(w[0] for w in words[:4]).upper()
     else:
-        key = re.sub(r"[^A-Z]", "", name.upper())[:6]
-    # Ensure min 2 chars
-    if len(key) < 2:
-        key = "PROJ"
-    log.debug("Generated project key: %s from name: %s", key, name)
-    return key
+        base_key = re.sub(r"[^A-Z]", "", name.upper())[:4]
+    if len(base_key) < 2:
+        base_key = "PROJ"
+    base_key = base_key[:4]
+
+    # Try base key, then with number suffix
+    keys_to_try = [base_key] + [f"{base_key}{i}" for i in range(2, 6)]
+    # Also add a random suffix as last resort
+    keys_to_try.append(f"{base_key[:3]}{random.randint(10,99)}")
+
+    for i, key in enumerate(keys_to_try):
+        try:
+            # Vary the name too (Jira rejects duplicate names even with different keys)
+            proj_name = name[:50] if i == 0 else f"{name[:45]} ({key})"
+            log.info("Trying to create project: key=%s name=%s", key, proj_name)
+            jira_client.create_project(key=key, name=proj_name)
+            log.info("Project created successfully: %s", key)
+            return key
+        except Exception as e:
+            log.warning("Key %s failed: %s", key, str(e)[:100])
+            continue
+
+    log.error("All project key attempts failed")
+    return None
 
 
 def _create_jira_structure(project_key: str, blueprint: dict) -> dict:
     """Create Jira project with standard epics."""
     result = {"epic_keys": []}
 
-    try:
-        # Create project
-        log.info("Creating Jira project: %s", project_key)
-        jira_client.create_project(
-            key=project_key,
-            name=blueprint.get("project_name", project_key),
-        )
-    except Exception as e:
-        log.warning("Project creation failed (may already exist): %s", e)
-
+    # Project already created by _create_project_with_retry
     # Standard epics for every project
     epics = [
         ("Planning & Research", "Market research, technology research, architecture decisions"),

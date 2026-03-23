@@ -26,13 +26,15 @@ Starting: 2026-03-22
 
 ### Phase 0: Infrastructure Foundation
 - [x] Create project directory structure
-- [ ] Create GitHub repo (ai-agent-company)
-- [ ] Base ADK agent scaffold + Jira integration
-- [ ] Vertex AI LLM client wrapper
-- [ ] Shared tools (Jira client, web search)
+- [x] Jira client (shared/jira_client.py) — create projects, issues, comments, transitions
+- [x] Vertex AI LLM client (shared/llm_client.py) — gemini-2.5-pro via Vertex AI
+- [x] Web search tool (shared/web_search.py) — Google search + page fetcher
+- [x] Config + logging (shared/config.py) — env vars, debug logging
+- [x] Pipeline runner (run_pipeline.py) — local orchestration replacing n8n
+- [ ] Create GitHub repo (PAT needs repo scope — pending)
 
 ### Phase 1: Consultant Brain — Layer 1 (8 agents)
-- [ ] **CB-001** — Company Orchestrator: CEO brain, project intake, blueprint generation
+- [x] **CB-001** — Company Orchestrator: TESTED OK — creates Jira project + epics + blueprint
 - [ ] **CB-002** — Market Research Agent: Deep market research with web search
 - [ ] **CB-003** — Technology Research Agent: Tech stack research, official docs
 - [ ] **CB-004** — Architecture Decision Agent: ADR generation, system design
@@ -86,7 +88,12 @@ Starting: 2026-03-22
 ```
 
 ## Known Issues / Blockers
-- None yet
+- Gemini 3.x preview models not accessible on pcagentspace — using gemini-2.5-pro (best available)
+- GitHub PAT lacks repo creation permission — need new PAT with `repo` scope
+- Jira business projects only have Task/Sub-task (no Epic type) — using labels instead
+- Jira deleted projects keep name/key reserved — need unique names per project
 
 ## Session Log
-- **2026-03-22**: Project kickoff. Read build plan. Set up GitHub CLI, GCP auth. Creating Layer 1 agents.
+- **2026-03-22**: Project kickoff. Read build plan. Set up GitHub CLI, GCP auth.
+- **2026-03-22**: Built all 8 CB agents + shared libs + pipeline runner. CB-001 tested OK with Jira integration.
+- **2026-03-22**: Fixed Jira client (business project type, REST API v3, issue_create fields format).

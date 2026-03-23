@@ -135,7 +135,7 @@ def run(blueprint_ticket_key: str, adr_ticket_key: str = None) -> dict:
                 f"## Complexity: {story.get('complexity', 'M')}\n"
                 f"## Dependencies: {', '.join(story.get('depends_on', []))}"
             )
-            labels = [story.get("label", "backend-api"), f"complexity-{story.get('complexity', 'M').lower()}"]
+            labels = [story.get("label", "backend-api"), f"complexity-{story.get('complexity', 'M').lower()}", f"epic-{epic_name.lower().replace(' ', '-')}"]
 
             try:
                 ticket = jira_client.create_issue(
@@ -144,7 +144,6 @@ def run(blueprint_ticket_key: str, adr_ticket_key: str = None) -> dict:
                     description=desc,
                     issue_type="Task",
                     labels=labels,
-                    parent_key=epic_key,
                 )
                 key = ticket.get("key", "")
                 story_keys.append(key)

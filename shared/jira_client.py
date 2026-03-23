@@ -14,13 +14,24 @@ def _get_client() -> Jira:
 
 # --------------- Projects ---------------
 
-def create_project(key: str, name: str, lead: str = None) -> dict:
-    """Create a Jira project (Scrum board)."""
+def create_project(key: str, name: str, lead_account_id: str = None) -> dict:
+    """Create a Jira project via REST API v3."""
     client = _get_client()
-    lead = lead or JIRA_EMAIL
     log.info("Creating project: key=%s name=%s", key, name)
-    # Use business project type which is simpler
-    result = client.create_project(key=key, name=name, project_type="software", template_name="com.pyxis.greenhopper.jira:gh-simplified-scrum-classic")
+
+    # Get lead account ID if not provided
+    if not lead_account_id:
+        myself = client.myself()
+        lead_account_id = myself.get("accountId", "")
+        log.debug("Using lead account: %s", lead_account_id)
+
+    data = {
+        "key": key,
+        "name": name,
+        "projectTypeKey": "business",
+        "leadAccountId": lead_account_id,
+    }
+    result = client.post("rest/api/3/project", data=data)
     log.debug("Project created: %s", result)
     return result
 
@@ -56,15 +67,15 @@ def create_issue(
         fields["parent"] = {"key": parent_key}
 
     log.info("Creating %s in %s: %s", issue_type, project_key, summary)
-    log.debug("Fields: %s", fields)
-    result = client.issue_create(fields=fields)
+    log.debug("Fields: %s", {k: v for k, v in fields.items() if k != "description"})
+    result = client.issue_create(fields)
     log.debug("Issue created: %s", result)
     return result
 
 
 def create_epic(project_key: str, summary: str, description: str) -> dict:
-    """Create an epic."""
-    return create_issue(project_key, summary, description, issue_type="Epic")
+    """Create an epic-like task (Jira business projects don't have Epics)."""
+    return create_issue(project_key, summary, description, issue_type="Task", labels=["epic"])
 
 
 def get_issue(issue_key: str) -> dict:
