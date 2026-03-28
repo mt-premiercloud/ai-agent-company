@@ -156,42 +156,134 @@ def run_planning_pipeline(project_idea: str) -> dict:
     }
 
 
-def run_build_pipeline(story_issue_id: str) -> dict:
-    """Run build + QA + security for a single story.
+def run_build_pipeline(story_issue_id: str, project_name: str = None, accumulated_context: str = "") -> dict:
+    """Run build + QA + security for a single story using REAL execution.
 
-    Takes a Paperclip issue ID (a story from the planner),
-    runs Builder → QA → Security sequentially.
+    1. Builder: generates actual code files, writes to disk, runs tests, commits
+    2. QA: runs unit tests, scans for bugs, AI code review
+    3. Security: OWASP pattern scan, dependency audit, STRIDE threat model
+
+    All results written to Paperclip as comments.
     """
+    from bridge.builder_agent import build_task
+    from bridge.qa_agent import run_qa
+    from bridge.security_agent import run_security_audit
+
     issue = get_issue(story_issue_id)
     title = issue.get("title", "Unknown")
     description = issue.get("description", "")
 
-    log.info("BUILD PIPELINE for: %s", title)
+    log.info("=" * 60)
+    log.info("BUILD PIPELINE: %s", title)
+    log.info("=" * 60)
 
-    context = f"## Story\n{title}\n\n## Description\n{description}"
+    if not project_name:
+        project_name = title.lower().replace(" ", "-")[:30]
+
     results = {}
 
-    for agent_key, hermes_role, step_name in BUILD_PIPELINE:
-        log.info(">>> BUILD STEP: %s [%s]", step_name, agent_key)
+    # --- STEP 1: Builder Agent (actually writes code) ---
+    log.info(">>> BUILD STEP 1/3: Builder Agent — Writing Code")
+    update_issue(story_issue_id, status="in_progress")
+    add_comment(story_issue_id, "**Builder Agent** starting — generating and writing actual code files...")
 
-        update_issue(story_issue_id, status="in_progress")
-        add_comment(story_issue_id, f"**{step_name}** starting by {agent_key}...")
+    try:
+        build_result = build_task(
+            task_title=title,
+            task_description=description,
+            project_name=project_name,
+            context=accumulated_context,
+        )
+        project_dir = build_result["project_dir"]
+        files_list = "\n".join(f"  - {f}" for f in build_result["files_created"])
+        comment = (
+            f"**Builder Agent complete:**\n\n"
+            f"Files created ({len(build_result['files_created'])}):\n{files_list}\n\n"
+            f"Tests: {'PASSED' if build_result['tests_passed'] else 'FAILED'}\n"
+            f"Commit: {build_result['commit_hash']}\n\n"
+            f"Summary: {build_result['summary']}"
+        )
+        add_comment(story_issue_id, comment)
+        results["builder"] = build_result
+        log.info("Builder done: %d files, tests=%s", len(build_result["files_created"]), build_result["tests_passed"])
 
-        try:
-            response = run_hermes_agent(
-                role=hermes_role,
-                task=f"{step_name}: {title}",
-                context=context,
-            )
-            add_comment(story_issue_id, f"**{step_name} complete:**\n\n{response[:8000]}")
-            results[agent_key] = response
-            context += f"\n\n## {step_name} Result\n{response[:2000]}"
+    except Exception as e:
+        add_comment(story_issue_id, f"**Builder FAILED:** {e}")
+        results["builder"] = {"error": str(e)}
+        log.error("Builder failed: %s", e)
+        update_issue(story_issue_id, status="backlog")
+        return results
 
-        except Exception as e:
-            add_comment(story_issue_id, f"**{step_name} FAILED:** {e}")
-            results[agent_key] = f"ERROR: {e}"
+    # --- STEP 2: QA Agent (actually runs tests and scans) ---
+    log.info(">>> BUILD STEP 2/3: QA Agent — Testing")
+    add_comment(story_issue_id, "**QA Agent** starting — running tests and scanning for bugs...")
 
+    try:
+        qa_result = run_qa(
+            project_dir=project_dir,
+            app_description=f"{title}: {description[:500]}",
+        )
+        bugs_list = "\n".join(
+            f"  - [{b.get('severity','?')}] {b.get('type','?')}: {b.get('description','?')[:80]}"
+            for b in qa_result.get("bugs", [])
+        )
+        comment = (
+            f"**QA Agent complete:**\n\n"
+            f"Unit tests: {'PASSED' if qa_result.get('unit_tests_passed') else 'FAILED'}\n"
+            f"Bugs found: {qa_result.get('total_bugs', 0)}\n"
+            f"{bugs_list if bugs_list else '  No bugs found!'}"
+        )
+        add_comment(story_issue_id, comment)
+        results["qa"] = qa_result
+        log.info("QA done: %d bugs", qa_result.get("total_bugs", 0))
+
+    except Exception as e:
+        add_comment(story_issue_id, f"**QA FAILED:** {e}")
+        results["qa"] = {"error": str(e)}
+        log.error("QA failed: %s", e)
+
+    # --- STEP 3: Security Agent (actually scans code) ---
+    log.info(">>> BUILD STEP 3/3: Security Agent — Auditing")
+    add_comment(story_issue_id, "**Security Agent** starting — OWASP scan + STRIDE threat model...")
+
+    try:
+        sec_result = run_security_audit(
+            project_dir=project_dir,
+            app_description=f"{title}: {description[:500]}",
+        )
+        vuln_list = "\n".join(
+            f"  - [{v.get('severity','?')}] {v.get('type','?')}: {v.get('file','?')}:{v.get('line','')} — {v.get('evidence','')[:60]}"
+            for v in sec_result.get("vulnerabilities", [])[:10]
+        )
+        recs = "\n".join(f"  - {r}" for r in sec_result.get("recommendations", [])[:5])
+        comment = (
+            f"**Security Agent complete:**\n\n"
+            f"Vulnerabilities: {sec_result.get('summary', {}).get('total_vulnerabilities', 0)} "
+            f"(High: {sec_result.get('summary', {}).get('high', 0)}, "
+            f"Medium: {sec_result.get('summary', {}).get('medium', 0)}, "
+            f"Low: {sec_result.get('summary', {}).get('low', 0)})\n\n"
+            f"Findings:\n{vuln_list if vuln_list else '  No vulnerabilities found!'}\n\n"
+            f"Recommendations:\n{recs if recs else '  None'}\n\n"
+            f"Score: {sec_result.get('score', 'N/A')}/100"
+        )
+        add_comment(story_issue_id, comment)
+        results["security"] = sec_result
+        log.info("Security done: %d vulns, score=%s",
+                 sec_result.get("summary", {}).get("total_vulnerabilities", 0),
+                 sec_result.get("score", "?"))
+
+    except Exception as e:
+        add_comment(story_issue_id, f"**Security FAILED:** {e}")
+        results["security"] = {"error": str(e)}
+        log.error("Security failed: %s", e)
+
+    # Mark done
     update_issue(story_issue_id, status="done")
+
+    log.info("=" * 60)
+    log.info("BUILD PIPELINE COMPLETE for: %s", title)
+    log.info("=" * 60)
+
     return results
 
 
