@@ -209,8 +209,8 @@ def run_full_planning_pipeline(project_idea: str) -> dict:
 
 # ---- ADK Agent Definition ----
 
-agent = LlmAgent(
-    model="vertexai/gemini-2.5-pro",
+root_agent = LlmAgent(
+    model="gemini-2.5-pro",
     name="company_orchestrator",
     description="AI Agent Company — Consultant Brain. Receives project ideas, conducts research, designs architecture, and creates a full project plan in Jira.",
     instruction="""You are the Company Orchestrator — the CEO brain of an AI development agency.
