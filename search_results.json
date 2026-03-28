@@ -1,0 +1,52 @@
+{
+  "freelancers self-employed statistics Montreal Quebec 2023 2024": [
+    "Jun 3,2024\u00b7This article sheds light on the diverse experiences ofself-employedworkersin Canada by analysing additional indicators such as the prevalence of gig work, plans for the future, and the ability to find clients.",
+    "In2023, an average of 2,652,600 people wereself-employed, representing 13.2% of the employed population. In 1976, when the LFS started collecting comparable data onself-employment, theself-employment rate \u2013 the proportion of workers who areself-employed\u2013 was 12.2%.",
+    "Indicateurs de suivi de la Strat\u00e9gie gouvernementale de d\u00e9veloppement durable2023-2028et indicateurs de long terme mesurant la progression de la soci\u00e9t\u00e9. Mise \u00e0 jour : 7 indicateurs."
+  ],
+  "Quebec Law 25 SaaS data privacy compliance requirements": [
+    "... 2021,Quebec\u2019s Parliament enactedLaw25(formerly Bill 64) (the \u201cLaw\u201d), which updatedQuebec\u2019sdataprotectionlawsand addedrequirements...",
+    "...Quebec\u2019s Parliament updated itsdataprivacyregime by passing the Act to Modernize Legislative Provisions as Regards the Protection of Personal ...",
+    "Quebec\u2019sLaw25, also known as Bill 64, is a comprehensivedataprivacylawintroducing stringentrequirementsfor organizations handling personal ..."
+  ],
+  "Revenu Quebec GST QST API integration developers": [
+    "For more information on the GST and QST registration rules and the special rules respecting QST registration, see IN-202-V, Registering With Revenu Qu\u00e9bec.",
+    "Register your business for the GST and QST. Collect the taxes from your clients. Calculate any input tax credits (ITCs) and input tax refunds (ITRs) you may be entitled to. File GST and QST returns for every reporting period.",
+    "Information about the application programming interface (API) used to validate a QST registration number."
+  ],
+  "Stripe Tax automation Canada Quebec GST QST": [
+    "Stripe Tax automates global tax compliance from start to finish, so you can focus on scaling your business. Identify your tax obligations, ...",
+    "Oct 7, 2024\u00b7This guide explains the ins and outs of tax compliance for both marketplaces and businesses operating in Canada.",
+    "Tax docs. Automate sales tax, VAT, and GST collection and reporting on all your transactions\u2014low- and no-code integrations are available."
+  ],
+  "GCP Montreal region northamerica-northeast1 services availability": [
+    "The newMontr\u00e9alregion,northamerica-northeast1, joins Oregon, Iowa, South Carolina and Northern Virginia inNorthAmericaand makes it easier to build highlyavailable, performant applications using resources across those geographies.",
+    "RegionalAvailability. Asia Pacific (APAC) - 6 LiveRegions. Europe, Middle East, Africa (EMEA) - 3 LiveRegions. Latin America (LATAM) - 1 LiveRegion.NorthAmerica(NA) - 5 LiveRegions.Regionstatus. Oracle Exadata DatabaseServiceon Dedicated Infrastructure.",
+    "Google Cloud Platform (GCP), the cloud computingserviceof Alphabet Inc, provides compute, storage, and networkingservicesthrough its data centers in 26 countries and 40 locations around the world."
+  ],
+  "Momenteo vs Freshbooks pricing features Canada": [
+    "Know How MuchFreshBooks\u00ae Cost. There Are Plans That Fit Every Business and Budget Size. Easy to Use Accounting & Invoicing Software for Small & Medium Businesses. Buy & Save Now!Professional Templates \u00b7 Proudly Canadian \u00b7 Made in Canada \u00b7 Accept Credit Cards",
+    "quickbooks.intuit.com has been visited by 1M+ users in the past monthDiscoverPricingPlans Designed To Fit Your Budget And Reduce Your Accounting Costs. Access Powerful Accounting, Custom Workflows & Advanced Reporting. Get QuickBooks\u00ae Today.Save 90% Off For 6 Months \u00b7 Free 24/7 Support \u00b7 Easy Payroll Automation \u00b7 Cloud Based AccountingQuickBooks Free Trial-$0.00/month- View more items",
+    "Find out which tool is better with a detailed comparison ofMomenteo&FreshBooks. Use an easy side-by-side layout to quickly compare theirfeatures,pricingand integrations."
+  ],
+  "Best GCP serverless architecture Next.js Cloud Run Cloud SQL": [
+    "6. Set up a Service Account 7. CreateCloudSQLDatabase 8. Prepare Application 9. Deploy the application toCloudRun10. Congratulations",
+    "By integratingserverlesssolutions likeCloudRun, App Engine, andCloudFunctions with otherGCPservices, you can create sophisticated, highly scalable applications that leverage thebestof ...",
+    "Introduction When deploying personal projects or small-scale applications toGCP(Google... Tagged withcloud,nextjs,serverless, tutorial."
+  ],
+  "React Next.js i18n bilingual localization best practices": [
+    "By combining internationalization (i18n) with tools likeReact-i18next and styling with Tailwind CSS, you can build applications that are flexible, user-friendly, and accessible to a global audience. In this project, we walked through setting upi18n, adding a language switcher, and including \"dark mode\" for better usability. References",
+    "In this article, we'll explore how to implementlocalizationin aReactapplication usingreact-i18next, followingbestpracticesto make your app scalable, efficient, and easy to maintain.",
+    "Thei18nrouting support is currently meant to complement existingi18nlibrary solutions likereact-intl,react-i18next, lingui, rosetta, next-intl, next-translate, next-multilingual, tolgee, paraglide-next, next-intlayer, gt-reactand others by streamlining the routes and locale parsing."
+  ],
+  "Firebase Auth vs Google Cloud Identity Platform multi-tenant SaaS": [
+    "Mar 16, 2026 \u00b7IdentityPlatformserves as the backend forFirebaseAuthenticationwithIdentityPlatformand offers identical features. As an upgrade fromFirebaseAuthentication,Identity...",
+    "Jan 1, 2020 \u00b7In November 2019Googlefurther extended GCIP with support fortenantmanagement. This new feature enables enterprises to definemultipletenantswithin a single instance ofGCIP.Sep 9, 2022 \u00b7Firebasehas announced a new optional upgrade calledFirebaseAuthenticationwithIdentityPlatform, however, the new features already exist on theGCPIdentityPlatform.Jan 2, 2022 \u00b7As I am developing aSAASproject that is going to be used by several clients that share common activities but they don\u2019t need necessarily the same features, I want to share within this article how I manage to organize the project.CompareFirebasevs.GoogleCloudIdentityvs.OAuthusing this comparison chart. Compare price, features, and reviews of the software side-by-side to make the best choice for your business.5 days ago \u00b7FirebaseAuthenticationis aimed at consumer applications, and offers a subset of features compared toIdentityPlatform.IdentityPlatformis intended for building enterprise-focused...Mar 16, 2026 \u00b7You can work withmultipletenantsusing single ormultipleauthinstances. To use a singleauthinstance, modify the tenantId property whenever you want to switch between tenants.",
+    "Sep 9, 2022 \u00b7Firebasehas announced a new optional upgrade calledFirebaseAuthenticationwithIdentityPlatform, however, the new features already exist on theGCPIdentityPlatform."
+  ],
+  "GCP Cloud SQL PostgreSQL IAM serverless connection pooling": [
+    "GoogleCloudSDK, languages, frameworks, and tools ... Quickstart:Connectfrom App Engine ... Quickstart:Connectusing theCloudSQLAuth proxy",
+    "... and query a database in theCloud... Quickstart:Connectfrom App Engine standard environment ... Quickstart:Connectusing theCloudSQLAuth proxy",
+    "... and query a database in theCloud... Quickstart:Connectfrom App Engine standard environment ... Quickstart:Connectusing theCloudSQLAuth proxy"
+  ]
+}
