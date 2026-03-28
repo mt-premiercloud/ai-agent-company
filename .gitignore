@@ -7,3 +7,7 @@ venv/
 dist/
 build/
 .pytest_cache/
+vendor/
+tools/
+paperclip-instance/
+paperclip-app/
