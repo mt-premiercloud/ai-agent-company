@@ -81,14 +81,22 @@ def run_planning_pipeline(project_idea: str) -> dict:
     log.info("Project: %s", project_idea[:100])
     log.info("=" * 70)
 
+    # Create a Paperclip project to group all issues
+    from bridge.paperclip_api import create_project
+    project_name = project_idea[:60].strip().rstrip('.')
+    paperclip_project = create_project(project_name, project_idea[:500])
+    project_id = paperclip_project["id"]
+    log.info("Paperclip project created: %s", project_id[:8])
+
     # Create the parent project issue
     parent = create_issue(
         title=f"Project: {project_idea[:80]}",
         description=project_idea,
         agent_key="ceo",
+        project_id=project_id,
     )
     parent_id = parent["id"]
-    update_issue(parent_id, status="in_progress")
+    update_issue(parent_id, status="todo")
     add_comment(parent_id, f"**Pipeline started** at {datetime.utcnow().isoformat()}\n\nProject idea: {project_idea}")
 
     accumulated_context = f"## Original Project Idea\n{project_idea}\n\n"
@@ -108,9 +116,10 @@ def run_planning_pipeline(project_idea: str) -> dict:
             description=f"Agent: {agent_key}\nTask: {step_name}\n\nContext:\n{accumulated_context[:2000]}",
             agent_key=agent_key,
             parent_id=parent_id,
+            project_id=project_id,
         )
         child_id = child["id"]
-        update_issue(child_id, status="in_progress")
+        update_issue(child_id, status="todo")
         add_comment(child_id, f"**{agent_key}** starting: {step_name}")
 
         # Run the agent
@@ -184,7 +193,7 @@ def run_build_pipeline(story_issue_id: str, project_name: str = None, accumulate
 
     # --- STEP 1: Builder Agent (actually writes code) ---
     log.info(">>> BUILD STEP 1/3: Builder Agent — Writing Code")
-    update_issue(story_issue_id, status="in_progress")
+    update_issue(story_issue_id, status="todo")
     add_comment(story_issue_id, "**Builder Agent** starting — generating and writing actual code files...")
 
     try:
@@ -287,6 +296,36 @@ def run_build_pipeline(story_issue_id: str, project_name: str = None, accumulate
     return results
 
 
+def _extract_build_tasks(planner_output: str, project_idea: str) -> list:
+    """Use Gemini to extract concrete build tasks from the planner's output."""
+    from openai import OpenAI
+    token = get_vertex_token()
+    client = OpenAI(
+        base_url="https://aiplatform.googleapis.com/v1beta1/projects/pcagentspace/locations/global/endpoints/openapi",
+        api_key=token,
+    )
+    resp = client.chat.completions.create(
+        model="google/gemini-3.1-pro-preview",
+        messages=[
+            {"role": "system", "content": "Extract the top 3-5 most important build tasks from this project plan. Output ONLY a JSON array of task title strings. No markdown, no explanation."},
+            {"role": "user", "content": f"Project: {project_idea[:500]}\n\nPlanner output:\n{planner_output[:4000]}"},
+        ],
+        max_tokens=500,
+        temperature=0.1,
+    )
+    try:
+        text = resp.choices[0].message.content.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+        tasks = json.loads(text)
+        if isinstance(tasks, list):
+            return [t if isinstance(t, str) else t.get("title", str(t)) for t in tasks]
+    except:
+        pass
+    # Fallback: use the project idea itself as the single build task
+    return [f"Build the complete solution: {project_idea[:80]}"]
+
+
 def run_full_project(project_idea: str) -> dict:
     """Run the COMPLETE project lifecycle: planning + building.
 
@@ -307,15 +346,11 @@ def run_full_project(project_idea: str) -> dict:
         # Create build issues from planner output
         log.info("Planning complete. Creating build tasks...")
 
-        # Extract stories — the planner's output contains story titles
-        # Create a few key build tasks
-        build_tasks = [
-            "Set up project infrastructure (Cloud Run, Cloud SQL, Firebase Auth)",
-            "Build landing page with bilingual support",
-            "Implement appointment booking system",
-        ]
+        # Extract actual build tasks from planner output using Gemini
+        build_tasks = _extract_build_tasks(planner_output, project_idea)
+        log.info("Extracted %d build tasks from planner", len(build_tasks))
 
-        for task_title in build_tasks:
+        for task_title in build_tasks[:5]:  # Max 5 tasks per project
             build_issue = create_issue(
                 title=task_title,
                 description=f"Build task from planning phase.\n\n{planner_output[:1000]}",

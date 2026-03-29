@@ -38,7 +38,17 @@ BUILD_PIPELINE = [
 ]
 
 
-def create_issue(title: str, description: str, agent_key: str = None, parent_id: str = None) -> dict:
+def create_project(name: str, description: str = "") -> dict:
+    """Create a Paperclip project to group issues."""
+    data = {"name": name, "description": description}
+    resp = requests.post(f"{BASE_URL}/companies/{COMPANY_ID}/projects", json=data)
+    resp.raise_for_status()
+    project = resp.json()
+    log.info("Project created: %s — %s", project.get("id", "?")[:8], name[:50])
+    return project
+
+
+def create_issue(title: str, description: str, agent_key: str = None, parent_id: str = None, project_id: str = None) -> dict:
     """Create an issue in Paperclip."""
     data = {
         "title": title,
@@ -52,6 +62,8 @@ def create_issue(title: str, description: str, agent_key: str = None, parent_id:
         data["description"] = f"[Agent: {agent_key}]\n\n{description}"
     if parent_id:
         data["parentId"] = parent_id
+    if project_id:
+        data["projectId"] = project_id
 
     resp = requests.post(f"{BASE_URL}/companies/{COMPANY_ID}/issues", json=data)
     resp.raise_for_status()

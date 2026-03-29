@@ -162,7 +162,8 @@ def build_task(task_title: str, task_description: str, project_name: str = None,
 
     # Step 1: Init project
     if not project_name:
-        project_name = task_title.lower().replace(" ", "-")[:30]
+        import re
+        project_name = re.sub(r'[^a-z0-9-]', '', task_title.lower().replace(" ", "-"))[:30]
     project_dir = init_project(project_name)
 
     # Step 2: Ask Gemini to generate the implementation plan with actual code
