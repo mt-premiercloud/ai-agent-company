@@ -94,6 +94,56 @@ def commit(project_dir: str, message: str):
     log.info("Committed: %s", message)
 
 
+def _generate_files_individually(task_title: str, task_description: str, context: str, project_dir: str) -> dict:
+    """Fallback: generate files one at a time for complex projects."""
+    log.info("Generating files individually (multi-pass)...")
+
+    # First, ask for the file list
+    file_list_response = call_gemini(
+        "You are a senior engineer. List all files needed for this project. Output ONLY a JSON array of file paths, nothing else.",
+        f"Task: {task_title}\nDescription: {task_description[:2000]}\nContext: {context[:1000]}",
+        max_tokens=2000,
+    )
+
+    try:
+        cleaned = file_list_response.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0]
+        file_paths = json.loads(cleaned)
+        if isinstance(file_paths, dict):
+            file_paths = file_paths.get("files", [])
+        if isinstance(file_paths, list) and file_paths and isinstance(file_paths[0], dict):
+            file_paths = [f.get("path", f.get("name", "")) for f in file_paths]
+    except:
+        file_paths = ["main.py", "requirements.txt", "tests/test_main.py", "README.md"]
+
+    log.info("File list: %s", file_paths)
+
+    # Generate each file
+    files = []
+    for filepath in file_paths[:10]:  # Max 10 files
+        if not filepath:
+            continue
+        log.info("Generating: %s", filepath)
+        content = call_gemini(
+            f"You are a senior engineer. Generate the COMPLETE content for the file '{filepath}'. Output ONLY the file content, no markdown fences, no explanation.",
+            f"Project: {task_title}\nFile: {filepath}\nDescription: {task_description[:1500]}\nContext: {context[:1000]}\n\nOther files in project: {', '.join(file_paths)}",
+            max_tokens=8000,
+        )
+        # Strip markdown fences if present
+        if content.strip().startswith("```"):
+            content = content.strip().split("\n", 1)[1]
+            if "```" in content:
+                content = content.rsplit("```", 1)[0]
+        files.append({"path": filepath, "content": content})
+
+    return {
+        "files": files,
+        "test_command": "python -m pytest tests/ -v",
+        "summary": f"Generated {len(files)} files individually",
+    }
+
+
 def build_task(task_title: str, task_description: str, project_name: str = None, context: str = "") -> dict:
     """Execute a build task — generate code, write files, run tests.
 
@@ -153,30 +203,59 @@ Generate the complete implementation as a JSON array of files.
 """
 
     log.info("Step 1: Generating code with Gemini 3.1 Pro...")
-    raw_response = call_gemini(system_prompt, user_msg, max_tokens=8192)
+    raw_response = call_gemini(system_prompt, user_msg, max_tokens=16000)
 
     # Step 3: Parse the files
-    log.info("Step 2: Parsing generated files...")
-    try:
-        cleaned = raw_response.strip()
-        if cleaned.startswith("```"):
-            cleaned = cleaned.split("\n", 1)[1]
-            if "```" in cleaned:
-                cleaned = cleaned.rsplit("```", 1)[0]
-        plan = json.loads(cleaned)
-    except json.JSONDecodeError:
-        # Try to repair
-        log.warning("JSON parse failed, attempting repair...")
+    log.info("Step 2: Parsing generated files... (response: %d chars)", len(raw_response))
+    plan = None
+    # Try multiple parsing strategies
+    for strategy in ["direct", "strip_fences", "find_json", "repair_truncated"]:
         try:
-            # Find the JSON object
-            start = raw_response.find("{")
-            end = raw_response.rfind("}") + 1
-            if start >= 0 and end > start:
-                plan = json.loads(raw_response[start:end])
-            else:
-                plan = {"files": [], "summary": "Parse failed", "raw": raw_response[:500]}
-        except:
-            plan = {"files": [], "summary": "Parse failed", "raw": raw_response[:500]}
+            if strategy == "direct":
+                plan = json.loads(raw_response.strip())
+            elif strategy == "strip_fences":
+                cleaned = raw_response.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("\n", 1)[1]
+                    if "```" in cleaned:
+                        cleaned = cleaned.rsplit("```", 1)[0]
+                plan = json.loads(cleaned)
+            elif strategy == "find_json":
+                start = raw_response.find('{"files"')
+                if start < 0:
+                    start = raw_response.find("{")
+                end = raw_response.rfind("}") + 1
+                if start >= 0 and end > start:
+                    plan = json.loads(raw_response[start:end])
+            elif strategy == "repair_truncated":
+                start = raw_response.find('{"files"')
+                if start < 0:
+                    start = raw_response.find("{")
+                if start >= 0:
+                    chunk = raw_response[start:].rstrip()
+                    # Close unclosed brackets
+                    opens = chunk.count("{") - chunk.count("}")
+                    open_sq = chunk.count("[") - chunk.count("]")
+                    # Remove trailing partial content
+                    chunk = chunk.rstrip(",\n\r\t ")
+                    chunk += '"}' * 0  # don't add extra content markers
+                    chunk += "]" * max(0, open_sq) + "}" * max(0, opens)
+                    plan = json.loads(chunk)
+            if plan and plan.get("files"):
+                log.info("Parsed with strategy: %s (%d files)", strategy, len(plan.get("files", [])))
+                break
+            plan = None
+        except (json.JSONDecodeError, Exception) as e:
+            log.debug("Strategy %s failed: %s", strategy, str(e)[:80])
+            plan = None
+
+    if not plan or not plan.get("files"):
+        # Last resort: ask Gemini to extract files from the response
+        log.warning("All parse strategies failed. Asking Gemini to generate files individually...")
+        plan = _generate_files_individually(task_title, task_description, context, project_dir)
+
+    if not plan:
+        plan = {"files": [], "summary": "All generation attempts failed", "raw": raw_response[:1000]}
 
     files = plan.get("files", [])
     test_cmd = plan.get("test_command", "echo 'no tests configured'")
