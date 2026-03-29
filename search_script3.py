@@ -1,5 +1,5 @@
-from duckduckgo_search import DDGS
 import json
+from ddgs import DDGS
 
 queries = [
     "Automated slide rebranding tools market",
@@ -19,11 +19,10 @@ with DDGS() as ddgs:
     for q in queries:
         print(f"Searching: {q}")
         try:
-            results[q] = list(ddgs.text(q, max_results=3))
+            res = list(ddgs.text(q, max_results=3))
+            results[q] = res
         except Exception as e:
             results[q] = str(e)
 
-with open("search_results.json", "w") as f:
-    json.dump(results, f, indent=2)
-
-print("Done")
+with open("search_results.json", "w", encoding="utf-8") as f:
+    json.dump(results, f, indent=2, ensure_ascii=False)

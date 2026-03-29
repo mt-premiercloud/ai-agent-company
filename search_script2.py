@@ -1,4 +1,4 @@
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 import json
 
 queries = [
@@ -17,13 +17,11 @@ queries = [
 results = {}
 with DDGS() as ddgs:
     for q in queries:
-        print(f"Searching: {q}")
         try:
-            results[q] = list(ddgs.text(q, max_results=3))
+            res = list(ddgs.text(q, max_results=3))
+            results[q] = res
         except Exception as e:
             results[q] = str(e)
 
 with open("search_results.json", "w") as f:
     json.dump(results, f, indent=2)
-
-print("Done")

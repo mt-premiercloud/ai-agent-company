@@ -45,8 +45,11 @@ def create_issue(title: str, description: str, agent_key: str = None, parent_id:
         "description": description,
         "status": "backlog",
     }
-    if agent_key and agent_key in AGENTS:
-        data["assigneeAgentId"] = AGENTS[agent_key]
+    # NOTE: Don't assign agents via assigneeAgentId — it triggers Paperclip's
+    # auto-heartbeat which conflicts with our bridge orchestration.
+    # Instead, track agent in labels/description for dashboard visibility.
+    if agent_key:
+        data["description"] = f"[Agent: {agent_key}]\n\n{description}"
     if parent_id:
         data["parentId"] = parent_id
 
