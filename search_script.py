@@ -1,29 +1,31 @@
+import sys
+import time
 from duckduckgo_search import DDGS
-import json
 
 queries = [
-    "Automated slide rebranding tools market",
-    "AI presentation generators enterprise features",
-    "Wpromote digital marketing agency presentation needs",
-    "PowerPoint python-pptx competitors enterprise",
-    "Slide processing API GCP alternatives",
-    "AI PowerPoint formatting software",
-    "Enterprise slide template management software",
-    "Market size presentation software AI",
-    "Automated PPTX translation and reformatting",
-    "Human in the loop AI presentation design"
+    "ornithologist jobs Quebec OR ornithologie emploi Québec",
+    "environmental researcher jobs UQAM Laval McGill",
+    "NSERC research grants environmental science job postings",
+    "Quebec government wildlife agency jobs MFFP MELCC",
+    "academic job portals Quebec universities",
+    "Applicant tracking systems ATS used by Universite Laval UQAM McGill",
+    "GCP Vertex AI Gemini 3.1 Pro document processing limits",
+    "GCP AlloyDB Vector Search pgvector best practices",
+    "parsing academic CVs publications python tools",
+    "Google Custom Search API Programmable Search limits for job scraping"
 ]
 
-results = {}
-with DDGS() as ddgs:
-    for q in queries:
-        print(f"Searching: {q}")
-        try:
-            results[q] = list(ddgs.text(q, max_results=3))
-        except Exception as e:
-            results[q] = str(e)
+def search():
+    with DDGS() as ddgs:
+        for q in queries:
+            print(f"\n--- Query: {q} ---")
+            try:
+                results = ddgs.text(q, max_results=3)
+                for r in results:
+                    print(f"- {r['title']}: {r['body']}")
+            except Exception as e:
+                print(f"Error: {e}")
+            time.sleep(2)
 
-with open("search_results.json", "w") as f:
-    json.dump(results, f, indent=2)
-
-print("Done")
+if __name__ == "__main__":
+    search()

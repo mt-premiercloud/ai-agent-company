@@ -167,29 +167,45 @@ def build_task(task_title: str, task_description: str, project_name: str = None,
     project_dir = init_project(project_name)
 
     # Step 2: Ask Gemini to generate the implementation plan with actual code
-    system_prompt = """You are a senior software engineer building a project.
-You MUST output a JSON array of files to create. Each file has a path and content.
-Use ONLY Google Cloud Platform services (Cloud Run, Cloud SQL, Firebase Auth, GCS, Vertex AI).
+    system_prompt = """You are a senior software engineer building a SINGLE UNIFIED application.
+You MUST output a JSON object with files to create. Each file has a path and content.
 
-Output format (JSON only, no markdown):
+CRITICAL OUTPUT FORMAT (JSON only, NO markdown fences):
 {
     "files": [
-        {"path": "relative/path/to/file.py", "content": "actual file content here"},
-        {"path": "tests/test_file.py", "content": "actual test content here"},
-        {"path": "requirements.txt", "content": "package list"},
-        {"path": "README.md", "content": "project description"}
+        {"path": "app.py", "content": "the main entry point"},
+        {"path": "templates/index.html", "content": "the frontend"},
+        {"path": "requirements.txt", "content": "dependencies"},
+        {"path": "README.md", "content": "how to run"}
     ],
     "test_command": "python -m pytest tests/ -v",
     "summary": "What was built"
 }
 
-RULES:
-- Every feature MUST have a corresponding test file
-- Use Python unless the task requires JavaScript/TypeScript
-- Include requirements.txt or package.json
-- Include a README.md
-- All code must be production-ready, not scaffolds
-- GCP ONLY: never reference AWS, Azure, Vercel, Supabase
+MANDATORY RULES:
+1. Build ONE unified app with ONE entry point (app.py or main.py) — NOT microservices
+2. The app MUST be runnable with a single command: python app.py
+3. Include ALL features in the same app — do NOT split into separate services
+4. Use Python with FastAPI + Jinja2 templates for web UI, or Flask
+5. Include requirements.txt with ALL dependencies
+6. GCP ONLY: never reference AWS, Azure, Vercel, Supabase
+
+GEMINI MODEL RULES (CRITICAL — apps will CRASH if you use wrong models):
+- NEVER use gemini-1.5-pro, gemini-1.5-flash, or gemini-1.5-flash-001 — they are DEPRECATED
+- For Vertex AI SDK (vertexai package): use model="gemini-2.5-pro" with location="us-central1"
+- For OpenAI-compatible endpoint: use model="google/gemini-2.5-pro" with base_url pointing to Vertex AI
+- For Gemini 3.1 preview: ONLY works via OpenAI-compatible endpoint at location "global"
+- Example for Gemini calls:
+  from openai import OpenAI
+  import google.auth, google.auth.transport.requests
+  creds, _ = google.auth.default()
+  creds.refresh(google.auth.transport.requests.Request())
+  client = OpenAI(base_url="https://aiplatform.googleapis.com/v1beta1/projects/pcagentspace/locations/global/endpoints/openapi", api_key=creds.token)
+
+UI RULES:
+- Use Tailwind CSS via CDN for styling (script src="https://cdn.tailwindcss.com")
+- Make it responsive and modern looking
+- Include proper navigation between sections
 """
 
     user_msg = f"""## Task: {task_title}
@@ -278,14 +294,35 @@ Generate the complete implementation as a JSON array of files.
         dep_result = run_command("pip install -r requirements.txt --quiet", cwd=project_dir, timeout=120)
         log.debug("Deps: %s", "OK" if dep_result["success"] else dep_result["stderr"][:200])
 
-    # Step 6: Run tests
+    # Step 6: Run tests with auto-fix retry (up to 2 attempts)
     log.info("Step 5: Running tests: %s", test_cmd)
     test_result = run_command(test_cmd, cwd=project_dir, timeout=120)
     tests_passed = test_result["success"]
     log.info("Tests: %s", "PASSED" if tests_passed else "FAILED")
+
     if not tests_passed:
-        log.debug("Test output: %s", test_result["stdout"][:500])
-        log.debug("Test errors: %s", test_result["stderr"][:500])
+        log.info("Step 5b: Tests failed — attempting auto-fix...")
+        error_output = (test_result["stdout"] + "\n" + test_result["stderr"])[-1500:]
+        fix_prompt = f"The tests failed with this error:\n{error_output}\n\nFix the code. Return ONLY a JSON object with files to update:\n{{\"files\": [{{\"path\": \"file.py\", \"content\": \"fixed content\"}}]}}"
+        try:
+            fix_response = call_gemini("You are fixing failing tests. Return ONLY JSON with updated files.", fix_prompt, max_tokens=8000)
+            cleaned = fix_response.strip()
+            if cleaned.startswith("```"):
+                cleaned = cleaned.split("\n", 1)[1].rsplit("```", 1)[0]
+            start = cleaned.find("{")
+            end = cleaned.rfind("}") + 1
+            if start >= 0 and end > start:
+                fix_plan = json.loads(cleaned[start:end])
+                for f in fix_plan.get("files", []):
+                    if f.get("path") and f.get("content"):
+                        write_file(project_dir, f["path"], f["content"])
+                        log.info("Auto-fixed: %s", f["path"])
+                # Re-run tests
+                test_result = run_command(test_cmd, cwd=project_dir, timeout=120)
+                tests_passed = test_result["success"]
+                log.info("Tests after fix: %s", "PASSED" if tests_passed else "STILL FAILING")
+        except Exception as e:
+            log.warning("Auto-fix failed: %s", e)
 
     # Step 7: Commit
     log.info("Step 6: Committing...")

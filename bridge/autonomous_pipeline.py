@@ -159,7 +159,8 @@ def run_planning_pipeline(project_idea: str) -> dict:
     return {
         "parent_issue_id": parent_id,
         "parent_issue_number": parent.get("issueNumber"),
-        "results": {k: v[:200] for k, v in results.items()},
+        "project_id": project_id,
+        "results": {k: v for k, v in results.items()},
         "steps_completed": len([v for v in results.values() if not v.startswith("ERROR")]),
         "total_steps": len(PLANNING_PIPELINE),
     }
@@ -342,25 +343,35 @@ def run_full_project(project_idea: str) -> dict:
 
     # Phase 2: Building (if planning succeeded and planner created stories)
     planner_output = planning_result.get("results", {}).get("planner", "")
+    project_id = planning_result.get("project_id")
     if planner_output and not planner_output.startswith("ERROR"):
-        # Create build issues from planner output
-        log.info("Planning complete. Creating build tasks...")
+        log.info("Planning complete. Building unified app...")
 
-        # Extract actual build tasks from planner output using Gemini
-        build_tasks = _extract_build_tasks(planner_output, project_idea)
-        log.info("Extracted %d build tasks from planner", len(build_tasks))
+        # Build ONE unified app (not separate tasks) with all planning context
+        import re
+        project_short = re.sub(r'[^a-z0-9-]', '', project_idea[:40].lower().replace(" ", "-"))
 
-        for task_title in build_tasks[:5]:  # Max 5 tasks per project
-            build_issue = create_issue(
-                title=task_title,
-                description=f"Build task from planning phase.\n\n{planner_output[:1000]}",
-                agent_key="builder",
-                parent_id=planning_result["parent_issue_id"],
-            )
-            log.info("Build task created: #%s %s", build_issue.get("issueNumber"), task_title)
+        # Gather ALL accumulated context from planning phase
+        all_context = "\n\n".join(
+            f"## {k.upper()}\n{v[:2000]}"
+            for k, v in planning_result.get("results", {}).items()
+            if not v.startswith("ERROR")
+        )
 
-            # Run build pipeline for this task
-            run_build_pipeline(build_issue["id"])
+        build_issue = create_issue(
+            title=f"Build: {project_idea[:60]}",
+            description=f"Build the complete unified application.\n\n{planner_output[:2000]}",
+            agent_key="builder",
+            parent_id=planning_result["parent_issue_id"],
+            project_id=project_id,
+        )
+        log.info("Build task created: #%s", build_issue.get("issueNumber"))
+
+        run_build_pipeline(
+            build_issue["id"],
+            project_name=project_short,
+            accumulated_context=all_context[:6000],
+        )
 
     return planning_result
 
